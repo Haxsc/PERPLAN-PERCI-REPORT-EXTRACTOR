@@ -546,13 +546,13 @@ def main(page: ft.Page):
             button_end_diurno.update()
 
     button_start_diurno = ft.ElevatedButton(
-        "Horario de Início",
-        width=150,
+        "Início do periodo DIURNO",
+        width=250,
         on_click=lambda e: open_time_picker_diurno(e)
     )
     button_end_diurno = ft.ElevatedButton(
-        "Horario de Fim",
-        width=150,
+        "Fim do periodo DIURNO",
+        width=250,
         on_click=lambda e: open_time_picker_noturno(e)
     )
 
