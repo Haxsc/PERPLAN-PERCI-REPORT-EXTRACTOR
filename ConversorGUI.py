@@ -14,11 +14,11 @@ def calculate_start_row_array(
     selected_time = datetime.strptime(selected_time, "%H:%M")
     difference_minutes = (selected_time - base_time).seconds // 60
 
-    relative_row = difference_minutes // interval_minutes
+    relative_row = difference_minutes 
+    interval_minutes
     start_row = start_row_base + relative_row
 
-    start_row_array = [start_row + i * increment for i in range(num_values)]
-    return start_row_array
+    return [start_row + i * increment for i in range(num_values)]
 
 
 def filter_by_date_and_time(df, date_column, target_date, start_time, end_time):
@@ -192,20 +192,46 @@ def process_configuration(config, output_folder, log):
         writer, sheet_name="Títulos", startrow=19, startcol=1, header=False, index=False
     )
 
+    # Determinar qual coluna usar baseado no nome da configuração
+    if config["name"] == "Período Diurno":
+        col_offset = 2  # Coluna B (startcol=2) para período diurno
+    else:  # Para "Madrugada" e "Período Noturno"
+        col_offset = 3  # Coluna C (startcol=3) para período noturno/madrugada
+
+    # Extrair nomes dos arquivos group_a e group_b
+    flags_used_a = ""
+    flags_used_b = ""
+    
+    if config["files_to_process_group_a"][0][0] and config["files_to_process_group_a"][0][0] != "":
+        flags_used_a = os.path.splitext(os.path.basename(config["files_to_process_group_a"][0][0]))[0]
+    
+    if config["files_to_process_group_b"][0][0] and config["files_to_process_group_b"][0][0] != "":
+        flags_used_b = os.path.splitext(os.path.basename(config["files_to_process_group_b"][0][0]))[0]
+
+    # Escrever flags_used_a na linha 20
+    if flags_used_a != "":
+        df_flags_used_a = pd.DataFrame([[flags_used_a]], columns=["Flags Used"])
+        df_flags_used_a.to_excel(
+            writer, sheet_name="Títulos", startrow=20, startcol=col_offset, header=False, index=False
+        )
+    
+    # Escrever flags_used_b na linha 21
+    if flags_used_b != "":
+        df_flags_used_b = pd.DataFrame([[flags_used_b]], columns=["Flags Used"])
+        df_flags_used_b.to_excel(
+            writer, sheet_name="Títulos", startrow=21, startcol=col_offset, header=False, index=False
+        )
+
     writer.close()
 
-    # Ensure files are deleted only once
-    unique_temp_files = set(file for _, file in temporary_files)
-    for temp_file in unique_temp_files:
-        if temp_file == "empty":
-            continue
-        try:
-            os.remove(temp_file)
-            print(f"Deleted temporary file: {temp_file}")
-        except FileNotFoundError:
-            print(f"Temporary file already deleted: {temp_file}")
-        except Exception as e:
-            print(f"Error deleting temporary file {temp_file}: {str(e)}")
+    # Limpeza otimizada de arquivos temporários
+    for _, temp_file in set(temporary_files):
+        if temp_file != "empty" and os.path.exists(temp_file):
+            try:
+                os.remove(temp_file)
+                print(f"Deleted temporary file: {temp_file}")
+            except Exception as e:
+                print(f"Error deleting temporary file {temp_file}: {str(e)}")
 
 
 def move_files_to_old_folder(configurations, old_folder):
@@ -246,12 +272,12 @@ def findalldays(csv_path):
         and df[col].dtype in ["int64", "float64"]
     ]
 
-    dias_validos = []
-    for data, grupo in df.groupby("data"):
-        if (grupo[colunas_contagem] > 0).any().any():
-            dias_validos.append({"boolean": True, "data": data.strftime("%d-%m-%Y")})
-
-    return dias_validos
+    # Otimização: usar groupby mais eficiente
+    return [
+        {"boolean": True, "data": data.strftime("%d-%m-%Y")}
+        for data, grupo in df.groupby("data")
+        if (grupo[colunas_contagem] > 0).any().any()
+    ]
 
 
 def main(page: ft.Page):
@@ -582,7 +608,7 @@ def main(page: ft.Page):
                 padding=ft.padding.only(top=6),
             )
         )
-        if e.data == "":
+        if e.data == None or e.data == "":
             start_time.value = time.strftime("%H:%M", time.gmtime(int(60 * 60 * 6)))
             button_start_diurno.text = start_time.value
             button_start_diurno.update()
@@ -600,7 +626,7 @@ def main(page: ft.Page):
                 padding=ft.padding.only(top=6),
             )
         )
-        if e.data == "":
+        if e.data == None or e.data == "":
             end_time.value = time.strftime(
                 "%H:%M", time.gmtime(int(60 * 60 * 18) - 60 * 15)
             )
