@@ -14,11 +14,11 @@ def calculate_start_row_array(
     selected_time = datetime.strptime(selected_time, "%H:%M")
     difference_minutes = (selected_time - base_time).seconds // 60
 
-    relative_row = difference_minutes 
-    interval_minutes
+    relative_row = difference_minutes // interval_minutes
     start_row = start_row_base + relative_row
 
-    return [start_row + i * increment for i in range(num_values)]
+    start_row_array = [start_row + i * increment for i in range(num_values)]
+    return start_row_array
 
 
 def filter_by_date_and_time(df, date_column, target_date, start_time, end_time):
@@ -37,10 +37,23 @@ nrows = 0
 
 
 def convert_to_excel(
-    csv_file, output_folder, filter_date, start_hour, end_hour, date_column="horaDas"
+    csv_file, output_folder, filter_date, start_hour, end_hour, date_column=None
 ):
     global nrows
     df = pd.read_csv(csv_file)
+    
+    # Detecta automaticamente a coluna de data se não especificada
+    if date_column is None:
+        possible_date_columns = ["horaDas", "Hora_Das", "hora_das", "HoraDas"]
+        date_column = None
+        for col in possible_date_columns:
+            if col in df.columns:
+                date_column = col
+                break
+        
+        if date_column is None:
+            raise ValueError(f"Nenhuma coluna de data encontrada. Colunas disponíveis: {list(df.columns)}")
+    
     if filter_date:
         filtered_df = filter_by_date_and_time(
             df, date_column, filter_date, start_hour, end_hour
@@ -54,7 +67,7 @@ def convert_to_excel(
     return output_file
 
 
-def process_configuration(config, output_folder, log):
+def process_configuration(config, output_folder, log, file_names=None):
     global nrows
     writer = pd.ExcelWriter(
         path=config["excel_target"],
@@ -192,46 +205,50 @@ def process_configuration(config, output_folder, log):
         writer, sheet_name="Títulos", startrow=19, startcol=1, header=False, index=False
     )
 
-    # Determinar qual coluna usar baseado no nome da configuração
-    if config["name"] == "Período Diurno":
-        col_offset = 2  # Coluna B (startcol=2) para período diurno
-    else:  # Para "Madrugada" e "Período Noturno"
-        col_offset = 3  # Coluna C (startcol=3) para período noturno/madrugada
-
-    # Extrair nomes dos arquivos group_a e group_b
-    flags_used_a = ""
-    flags_used_b = ""
-    
-    if config["files_to_process_group_a"][0][0] and config["files_to_process_group_a"][0][0] != "":
-        flags_used_a = os.path.splitext(os.path.basename(config["files_to_process_group_a"][0][0]))[0]
-    
-    if config["files_to_process_group_b"][0][0] and config["files_to_process_group_b"][0][0] != "":
-        flags_used_b = os.path.splitext(os.path.basename(config["files_to_process_group_b"][0][0]))[0]
-
-    # Escrever flags_used_a na linha 20
-    if flags_used_a != "":
-        df_flags_used_a = pd.DataFrame([[flags_used_a]], columns=["Flags Used"])
-        df_flags_used_a.to_excel(
-            writer, sheet_name="Títulos", startrow=20, startcol=col_offset, header=False, index=False
-        )
-    
-    # Escrever flags_used_b na linha 21
-    if flags_used_b != "":
-        df_flags_used_b = pd.DataFrame([[flags_used_b]], columns=["Flags Used"])
-        df_flags_used_b.to_excel(
-            writer, sheet_name="Títulos", startrow=21, startcol=col_offset, header=False, index=False
-        )
+    # Escrever os nomes dos arquivos nas células específicas
+    if file_names:
+        # Coluna C (startcol=2) linha 21 (startrow=20) - button_day_a
+        if file_names.get('day_a'):
+            df_day_a = pd.DataFrame([[file_names['day_a']]], columns=["Day_A"])
+            df_day_a.to_excel(
+                writer, sheet_name="Títulos", startrow=20, startcol=2, header=False, index=False
+            )
+        
+        # Coluna C (startcol=2) linha 22 (startrow=21) - button_day_b
+        if file_names.get('day_b'):
+            df_day_b = pd.DataFrame([[file_names['day_b']]], columns=["Day_B"])
+            df_day_b.to_excel(
+                writer, sheet_name="Títulos", startrow=21, startcol=2, header=False, index=False
+            )
+        
+        # Coluna D (startcol=3) linha 21 (startrow=20) - button_evening_a
+        if file_names.get('evening_a'):
+            df_evening_a = pd.DataFrame([[file_names['evening_a']]], columns=["Evening_A"])
+            df_evening_a.to_excel(
+                writer, sheet_name="Títulos", startrow=20, startcol=3, header=False, index=False
+            )
+        
+        # Coluna D (startcol=3) linha 22 (startrow=21) - button_evening_b
+        if file_names.get('evening_b'):
+            df_evening_b = pd.DataFrame([[file_names['evening_b']]], columns=["Evening_B"])
+            df_evening_b.to_excel(
+                writer, sheet_name="Títulos", startrow=21, startcol=3, header=False, index=False
+            )
 
     writer.close()
 
-    # Limpeza otimizada de arquivos temporários
-    for _, temp_file in set(temporary_files):
-        if temp_file != "empty" and os.path.exists(temp_file):
-            try:
-                os.remove(temp_file)
-                print(f"Deleted temporary file: {temp_file}")
-            except Exception as e:
-                print(f"Error deleting temporary file {temp_file}: {str(e)}")
+    # Ensure files are deleted only once
+    unique_temp_files = set(file for _, file in temporary_files)
+    for temp_file in unique_temp_files:
+        if temp_file == "empty":
+            continue
+        try:
+            os.remove(temp_file)
+            print(f"Deleted temporary file: {temp_file}")
+        except FileNotFoundError:
+            print(f"Temporary file already deleted: {temp_file}")
+        except Exception as e:
+            print(f"Error deleting temporary file {temp_file}: {str(e)}")
 
 
 def move_files_to_old_folder(configurations, old_folder):
@@ -260,24 +277,35 @@ def move_files_to_old_folder(configurations, old_folder):
 def findalldays(csv_path):
     df = pd.read_csv(csv_path)
 
-    # Converte 'horaDas' para datetime e extrai apenas a data
-    df["horaDas"] = pd.to_datetime(df["horaDas"], errors="coerce")
-    df["data"] = df["horaDas"].dt.date
+    # Detecta automaticamente a coluna de data
+    possible_date_columns = ["horaDas", "Hora_Das", "hora_das", "HoraDas"]
+    date_column = None
+    for col in possible_date_columns:
+        if col in df.columns:
+            date_column = col
+            break
+    
+    if date_column is None:
+        raise ValueError(f"Nenhuma coluna de data encontrada. Colunas disponíveis: {list(df.columns)}")
+
+    # Converte a coluna de data para datetime e extrai apenas a data
+    df[date_column] = pd.to_datetime(df[date_column], errors="coerce")
+    df["data"] = df[date_column].dt.date
 
     # Pega apenas as colunas numéricas que representam contagens
     colunas_contagem = [
         col
         for col in df.columns
-        if col not in ["horaDas", "horaAte", "data"]
+        if col not in [date_column, "horaAte", "data"]
         and df[col].dtype in ["int64", "float64"]
     ]
 
-    # Otimização: usar groupby mais eficiente
-    return [
-        {"boolean": True, "data": data.strftime("%d-%m-%Y")}
-        for data, grupo in df.groupby("data")
-        if (grupo[colunas_contagem] > 0).any().any()
-    ]
+    dias_validos = []
+    for data, grupo in df.groupby("data"):
+        if (grupo[colunas_contagem] > 0).any().any():
+            dias_validos.append({"boolean": True, "data": data.strftime("%d-%m-%Y")})
+
+    return dias_validos
 
 
 def main(page: ft.Page):
@@ -396,7 +424,7 @@ def main(page: ft.Page):
         days_columns.update()
 
     def pick_mov_a_day_files(e: ft.FilePickerResultEvent):
-        nonlocal report_daytime_a, target_days, days_controls
+        nonlocal report_daytime_a, target_days, days_controls, file_name_day_a
         path = None
         if e.files:
             path = ", ".join(map(lambda f: f.path, e.files))
@@ -404,9 +432,11 @@ def main(page: ft.Page):
         if path is None:
             button_day_a.text = "Arquivo Não Selecionado"
             button_day_a.icon = ft.Icons.ERROR_ROUNDED
+            file_name_day_a = ""
         else:
             button_day_a.text = e.files[0].name
             button_day_a.icon = ft.Icons.CHECK_ROUNDED
+            file_name_day_a = os.path.splitext(e.files[0].name)[0]  # Remove extensão
 
             report_daytime_a = path
 
@@ -416,7 +446,7 @@ def main(page: ft.Page):
         button_day_a.update()
 
     def pick_mov_b_day_files(e: ft.FilePickerResultEvent):
-        nonlocal report_daytime_b, target_days, days_controls
+        nonlocal report_daytime_b, target_days, days_controls, file_name_day_b
         path = None
         if e.files:
             path = ", ".join(map(lambda f: f.path, e.files))
@@ -424,9 +454,11 @@ def main(page: ft.Page):
         if path is None:
             button_day_b.text = "Arquivo Não Selecionado"
             button_day_b.icon = ft.Icons.ERROR_ROUNDED
+            file_name_day_b = ""
         else:
             button_day_b.text = e.files[0].name
             button_day_b.icon = ft.Icons.CHECK_ROUNDED
+            file_name_day_b = os.path.splitext(e.files[0].name)[0]  # Remove extensão
 
             report_daytime_b = path
             days_controls = findalldays(report_daytime_b)
@@ -435,7 +467,7 @@ def main(page: ft.Page):
         button_day_b.update()
 
     def pick_mov_a_evening_files(e: ft.FilePickerResultEvent):
-        nonlocal report_evening_a, target_days, days_controls
+        nonlocal report_evening_a, target_days, days_controls, file_name_evening_a
         path = None
         if e.files:
             path = ", ".join(map(lambda f: f.path, e.files))
@@ -443,9 +475,11 @@ def main(page: ft.Page):
         if path is None:
             button_evening_a.text = "Arquivo Não Selecionado"
             button_evening_a.icon = ft.Icons.ERROR_ROUNDED
+            file_name_evening_a = ""
         else:
             button_evening_a.text = e.files[0].name
             button_evening_a.icon = ft.Icons.CHECK_ROUNDED
+            file_name_evening_a = os.path.splitext(e.files[0].name)[0]  # Remove extensão
 
             report_evening_a = path
             days_controls = findalldays(report_evening_a)
@@ -454,7 +488,7 @@ def main(page: ft.Page):
         button_evening_a.update()
 
     def pick_mov_b_evening_files(e: ft.FilePickerResultEvent):
-        nonlocal report_evening_b, target_days, days_controls
+        nonlocal report_evening_b, target_days, days_controls, file_name_evening_b
         path = None
         if e.files:
             path = ", ".join(map(lambda f: f.path, e.files))
@@ -462,10 +496,12 @@ def main(page: ft.Page):
         if path is None:
             button_evening_b.text = "Arquivo Não Selecionado"
             button_evening_b.icon = ft.Icons.ERROR_ROUNDED
+            file_name_evening_b = ""
 
         else:
             button_evening_b.text = e.files[0].name
             button_evening_b.icon = ft.Icons.CHECK_ROUNDED
+            file_name_evening_b = os.path.splitext(e.files[0].name)[0]  # Remove extensão
 
             report_evening_b = path
             days_controls = findalldays(report_evening_b)
@@ -490,6 +526,12 @@ def main(page: ft.Page):
     report_daytime_b = ""
     report_evening_a = ""
     report_evening_b = ""
+    
+    # Variáveis para armazenar os nomes dos arquivos
+    file_name_day_a = ""
+    file_name_day_b = ""
+    file_name_evening_a = ""
+    file_name_evening_b = ""
 
     button_day_a = ft.ElevatedButton(
         "Selecione o Mov.A",
@@ -697,10 +739,15 @@ def main(page: ft.Page):
     def reset_app():
         # Limpar variáveis globais
         nonlocal log_output, report_daytime_a, report_daytime_b, report_evening_a, report_evening_b, excel_target, days_process
+        nonlocal file_name_day_a, file_name_day_b, file_name_evening_a, file_name_evening_b
         report_daytime_a = ""
         report_daytime_b = ""
         report_evening_a = ""
         report_evening_b = ""
+        file_name_day_a = ""
+        file_name_day_b = ""
+        file_name_evening_a = ""
+        file_name_evening_b = ""
         log_output.value = "Informacões seram geradas aqui...\n"
         excel_target = None
 
@@ -735,6 +782,7 @@ def main(page: ft.Page):
         page.update()
 
     def run_script(e):
+        nonlocal file_name_day_a, file_name_day_b, file_name_evening_a, file_name_evening_b
         try:
             if not excel_target:
                 show_error_dialog("Arquivo do excel não selecionado")
@@ -829,10 +877,19 @@ def main(page: ft.Page):
             ]
 
             os.makedirs(old_folder, exist_ok=True)
+            
+            # Preparar os nomes dos arquivos para passar para process_configuration
+            file_names = {
+                'day_a': file_name_day_a if file_name_day_a else None,
+                'day_b': file_name_day_b if file_name_day_b else None,
+                'evening_a': file_name_evening_a if file_name_evening_a else None,
+                'evening_b': file_name_evening_b if file_name_evening_b else None
+            }
+            
             for config in CONFIGURATIONS:
                 log(f"Iniciando o processamento de {config['name']}...")
                 print(config)
-                process_configuration(config, output_folder, log)
+                process_configuration(config, output_folder, log, file_names)
                 log(f"Processamento de {config['name']} concluído com sucesso.")
 
             move_files_to_old_folder(CONFIGURATIONS, old_folder)
@@ -912,55 +969,3 @@ def main(page: ft.Page):
 
 
 ft.app(target=main)
-
-
-[
-    {
-        "name": "Madrugada",
-        "start_hour": "00:00",
-        "end_hour": "05:45",
-        "days_process": 2,
-        "excel_target": "C:\\Users\\lucas.melo\\Downloads\\BASE TESTE.xlsx",
-        "start_rows": [16, 119, 222, 325, 428, 531, 634],
-        "days_controls": [
-            {"boolean": True, "data": "17-12-2024"},
-            {"boolean": True, "data": "18-12-2024"},
-        ],
-        "move_files": False,
-        "files_to_process_group_a": [("", "17-12-2024"), ("", "18-12-2024")],
-        "files_to_process_group_b": [("", "17-12-2024"), ("", "18-12-2024")],
-    },
-    {
-        "name": "Período Diurno",
-        "start_hour": "06:00",
-        "end_hour": "17:45",
-        "days_process": 2,
-        "excel_target": "C:\\Users\\lucas.melo\\Downloads\\BASE TESTE.xlsx",
-        "start_rows": [40, 143, 246, 349, 452, 555, 658],
-        "days_controls": [
-            {"boolean": True, "data": "17-12-2024"},
-            {"boolean": True, "data": "18-12-2024"},
-        ],
-        "move_files": True,
-        "files_to_process_group_a": [
-            ("C:\\Users\\lucas.melo\\Downloads\\Report_2738__a_b.csv", "17-12-2024"),
-            ("C:\\Users\\lucas.melo\\Downloads\\Report_2738__a_b.csv", "18-12-2024"),
-        ],
-        "files_to_process_group_b": [("", "17-12-2024"), ("", "18-12-2024")],
-    },
-    {
-        "name": "Período Noturno",
-        "start_hour": "18:00",
-        "end_hour": "23:45",
-        "days_process": 2,
-        "excel_target": "C:\\Users\\lucas.melo\\Downloads\\BASE TESTE.xlsx",
-        "start_rows": [88, 191, 294, 397, 500, 603, 706],
-        "days_controls": [
-            {"boolean": True, "data": "17-12-2024"},
-            {"boolean": True, "data": "18-12-2024"},
-        ],
-        "move_files": True,
-        "files_to_process_group_a": [("", "17-12-2024"), ("", "18-12-2024")],
-        "files_to_process_group_b": [("", "17-12-2024"), ("", "18-12-2024")],
-    },
-]
