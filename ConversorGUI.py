@@ -110,11 +110,11 @@ def process_configuration(config, output_folder, log, file_names=None):
                 if name_mov_a in xlsx_file:
                     df = pd.read_excel(
                         xlsx_file,
-                        usecols="D:AD",
+                        usecols="D:P",
                         sheet_name="Sheet1",
                         skiprows=1,
                         nrows=nrows,
-                        engine="openpyxl",
+                        engine="openpyxl",      
                         header=None,
                     )
                     data_frames_a.append(df)
@@ -128,7 +128,7 @@ def process_configuration(config, output_folder, log, file_names=None):
                 if name_mov_b in xlsx_file:
                     df = pd.read_excel(
                         xlsx_file,
-                        usecols="D:AD",
+                        usecols="D:P",
                         sheet_name="Sheet1",
                         skiprows=1,
                         nrows=nrows,
@@ -160,7 +160,7 @@ def process_configuration(config, output_folder, log, file_names=None):
                 writer,
                 sheet_name="Contagens A (EXCLUIR)",
                 startrow=start_row,
-                startcol=36,  # Coluna AK
+                startcol=22,  # Coluna AK
                 header=False,
                 index=False,
             )
@@ -174,19 +174,20 @@ def process_configuration(config, output_folder, log, file_names=None):
             else:
                 df["Period"] = "Noturno"
 
-            pd.DataFrame(df["Period"]).to_excel(
-                writer,
-                sheet_name="Contagens B (EXCLUIR)",
-                startrow=start_row,
-                startcol=36,  # Coluna AK
-                header=False,
-                index=False,
-            )
             df.to_excel(
                 writer,
                 sheet_name="Contagens B (EXCLUIR)",
                 startrow=start_row,
                 startcol=4,
+                header=False,
+                index=False,
+            )
+            
+            pd.DataFrame(df["Period"]).to_excel(
+                writer,
+                sheet_name="Contagens B (EXCLUIR)",
+                startrow=start_row,
+                startcol=22,  # Coluna AK
                 header=False,
                 index=False,
             )
