@@ -110,7 +110,7 @@ def process_configuration(config, output_folder, log, file_names=None):
                 if name_mov_a in xlsx_file:
                     df = pd.read_excel(
                         xlsx_file,
-                        usecols="D:P",
+                        usecols="C:P",
                         sheet_name="Sheet1",
                         skiprows=1,
                         nrows=nrows,
@@ -128,7 +128,7 @@ def process_configuration(config, output_folder, log, file_names=None):
                 if name_mov_b in xlsx_file:
                     df = pd.read_excel(
                         xlsx_file,
-                        usecols="D:P",
+                        usecols="C:P",
                         sheet_name="Sheet1",
                         skiprows=1,
                         nrows=nrows,
@@ -142,21 +142,18 @@ def process_configuration(config, output_folder, log, file_names=None):
         data_frames_a, config["start_rows"], config["days_controls"]
     ):
         if day_control["boolean"]:
-            if config["name"] == "Período Diurno":
-                df["Period"] = "Diurno"
-            else:
-                df["Period"] = "Noturno"
+            periodo = "Diurno" if config["name"] == "Período Diurno" else "Noturno"
 
             df.to_excel(
                 writer,
                 sheet_name="Contagens A (EXCLUIR)",
                 startrow=start_row,
-                startcol=4,  # Dados começam na coluna 4
+                startcol=3,  # Dados começam na coluna 4
                 header=False,
                 index=False,
             )
 
-            pd.DataFrame(df["Period"]).to_excel(
+            pd.DataFrame([periodo]* len(df)).to_excel(
                 writer,
                 sheet_name="Contagens A (EXCLUIR)",
                 startrow=start_row,
@@ -169,21 +166,18 @@ def process_configuration(config, output_folder, log, file_names=None):
         data_frames_b, config["start_rows"], config["days_controls"]
     ):
         if day_control["boolean"]:  # Apenas processa se o checkbox estiver marcado
-            if config["name"] == "Período Diurno":
-                df["Period"] = "Diurno"
-            else:
-                df["Period"] = "Noturno"
+            periodo = "Diurno" if config["name"] == "Período Diurno" else "Noturno"
 
             df.to_excel(
                 writer,
                 sheet_name="Contagens B (EXCLUIR)",
                 startrow=start_row,
-                startcol=4,
+                startcol=3,
                 header=False,
                 index=False,
             )
             
-            pd.DataFrame(df["Period"]).to_excel(
+            pd.DataFrame([periodo]* len(df)).to_excel(
                 writer,
                 sheet_name="Contagens B (EXCLUIR)",
                 startrow=start_row,
